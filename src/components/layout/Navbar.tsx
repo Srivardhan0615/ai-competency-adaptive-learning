@@ -1,27 +1,53 @@
-"use client";
+﻿"use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
-  Sparkles, 
   BrainCircuit, 
   LayoutDashboard, 
   GraduationCap, 
   BookOpen, 
   ShieldCheck, 
   FileText, 
-  Settings 
+  Sparkles,
+  LogOut,
+  LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isAdmin = pathname.startsWith("/admin");
+  const [user, setUser] = useState<any>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    router.push("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-navy-700/60 bg-navy-950/80 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand */}
         <Link href="/" className="flex items-center space-x-3 group">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-indigo via-electric-500 to-brand-violet p-[1px] shadow-glow-indigo transition-transform group-hover:scale-105">
             <div className="w-full h-full bg-navy-950 rounded-[11px] flex items-center justify-center">
@@ -41,7 +67,6 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Center Nav Links */}
         <nav className="hidden md:flex items-center space-x-1">
           {!isAdmin ? (
             <>
@@ -124,20 +149,42 @@ export default function Navbar() {
           )}
         </nav>
 
-        {/* Role Switcher Pill */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <Link
             href={isAdmin ? "/dashboard" : "/admin/dashboard"}
             className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide border transition-all flex items-center space-x-1.5",
+              "px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide border transition-all flex items-center space-x-1.5",
               isAdmin
                 ? "bg-electric-500/10 text-electric-400 border-electric-500/30 hover:bg-electric-500/20"
                 : "bg-brand-violet/10 text-brand-violet border-brand-violet/30 hover:bg-brand-violet/20"
             )}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>{isAdmin ? "Switch to Learner" : "Faculty Portal"}</span>
+            <span className="hidden sm:inline">{isAdmin ? "Switch to Learner" : "Faculty Portal"}</span>
           </Link>
+
+          {user ? (
+            <div className="flex items-center space-x-2">
+              <span className="hidden md:inline-block text-xs text-slate-300 font-medium px-2 py-1 rounded bg-navy-900 border border-navy-800">
+                {user.user_metadata?.full_name || user.email?.split("@")[0]}
+              </span>
+              <button
+                onClick={handleSignOut}
+                title="Sign Out"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-navy-900 border border-transparent hover:border-rose-500/30 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-electric-600 hover:bg-electric-500 text-white flex items-center space-x-1 shadow-sm transition-all"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>
